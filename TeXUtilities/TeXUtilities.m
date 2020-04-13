@@ -73,6 +73,13 @@ represents TeX environment:
 \\end{name}
 with expri, argi, opti and vali converted to TeXForm."
 
+ToTeXString::usage = 
+"\
+ToTeXString[expr]
+converts an expression to string in TeX fomat.
+Works recursively and can be customized by adding more definitions.
+";
+
 
 (* ::Section:: *)
 (*Implementation*)
@@ -98,6 +105,24 @@ heldToTeXString[expr]\
 returns string corresponding to TeX form of given expression expr. \
 expr is not evaluated."
 
+Attributes[ToTeXString] = HoldAll;
+
+ToTeXString[arg___] := ToString[Unevaluated@arg, TeXForm];
+
+ToTeXString[HoldPattern[Times[tt:Longest[Power[_,_?Negative]..],rest___]]]:="\\frac{ "<>ToTeXString[Times[rest]]<>" }"<>"{ "<>ToTeXString[Evaluate[1/Times[tt]]]<>" }";
+ToTeXString[HoldPattern[Times[tt:Longest[Power[_,n_?Positive]..],rest___]]]/;Length[{tt}]>=2:=ToTeXString[Times[rest]]<>"\\qty("<>StringRiffle[ToTeXString/@First/@{tt}]<>")^{"<>ToTeXString[n]<>"}";
+ToTeXString[HoldPattern[Plus[args__]]]:=StringRiffle[ToTeXString/@{args},{"\\qty( "," + "," )"}];
+ToTeXString[HoldPattern[Times[args__]]]:=StringRiffle[ToTeXString/@{args},{""," ",""}];
+
+
+ToTeXString[HoldPattern[Power[a_,-1]]]:="\\frac{1}{"<>ToTeXString[a]<>"}";
+ToTeXString[HoldPattern[Power[a_,p_Integer?Negative]]]:="\\frac{1}{ "<>ToTeXString[Power[a,Evaluate[-p]]]<>" }";
+
+ToTeXString[HoldPattern[Power[a_Symbol,p_]]] := ToTeXString[a]<>"^{"<>ToTeXString[p]<>"}";
+ToTeXString[HoldPattern[Power[h_[args___],p_]]] := If[ Context[h]=="System`" && !MemberQ[{Plus}, h] ,
+    "\\qty("<>ToTeXString[h[args]]<>")^{"<>ToTeXString[p]<>"}",
+    ToTeXString[h[args]]<>"^{"<>ToTeXString[p]<>"}"
+];
 
 heldToTeXString =
 	Function[Null, ToString[Unevaluated@#, TeXForm], HoldAllComplete]
@@ -472,6 +497,8 @@ End[]
 
 
 Protect@"`*"
+
+Unprotect@ToTeXString;
 
 
 EndPackage[]
